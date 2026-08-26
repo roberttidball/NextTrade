@@ -15,7 +15,7 @@ export interface GraphQLRequest {
   operationName?: string;
 }
 
-const DEFAULT_BASE_URL = "https://fxmacrodata.com/api/v1";
+const DEFAULT_BASE_URL = "https://api.fxmacrodata.com/v1";
 
 function getApiKey(apiKey?: string): string | undefined {
   return apiKey || process.env.FXMACRODATA_API_KEY || process.env.FXMD_API_KEY;
@@ -66,7 +66,7 @@ export class FxMacroDataClient {
 
   public async post<T = unknown>(
     path: string,
-    body?: Record<string, unknown>,
+    body?: unknown,
     query?: FxMacroDataQuery
   ): Promise<T> {
     const params = normalizeParams(query);
