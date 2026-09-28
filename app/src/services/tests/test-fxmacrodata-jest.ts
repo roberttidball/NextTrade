@@ -1,20 +1,40 @@
 import { FxMacroDataClient } from "../fxmacrodata";
 
 function requestDouble() {
-  const calls: { method: string; path: string; params?: unknown; body?: unknown }[] = [];
+  const calls: {
+    method: string;
+    path: string;
+    params?: unknown;
+    headers?: unknown;
+    body?: unknown;
+  }[] = [];
   return {
     calls,
     request: {
-      get: async (path: string, options?: { params?: unknown }) => {
-        calls.push({ method: "GET", path, params: options?.params });
+      get: async (
+        path: string,
+        options?: { params?: unknown; headers?: unknown }
+      ) => {
+        calls.push({
+          method: "GET",
+          path,
+          params: options?.params,
+          headers: options?.headers,
+        });
         return { data: { ok: true } };
       },
       post: async (
         path: string,
         body?: unknown,
-        options?: { params?: unknown }
+        options?: { params?: unknown; headers?: unknown }
       ) => {
-        calls.push({ method: "POST", path, body, params: options?.params });
+        calls.push({
+          method: "POST",
+          path,
+          body,
+          params: options?.params,
+          headers: options?.headers,
+        });
         return { data: { ok: true } };
       },
     },
@@ -22,19 +42,20 @@ function requestDouble() {
 }
 
 describe("FxMacroDataClient", () => {
-  test("adds query-parameter auth to requests", async () => {
+  test("sends the API key as a header and passes paging params", async () => {
     const { calls, request } = requestDouble();
     const client = new FxMacroDataClient({
       apiKey: "test-key",
       request: request as any,
     });
 
-    await client.calendar("usd", { start_date: "2026-07-01" });
+    await client.forex("eur", "usd", { limit: 100, offset: 100 });
 
     expect(calls[0]).toEqual({
       method: "GET",
-      path: "calendar/usd",
-      params: { start_date: "2026-07-01", api_key: "test-key" },
+      path: "forex/eur/usd",
+      params: { limit: 100, offset: 100 },
+      headers: { "X-API-Key": "test-key" },
     });
   });
 
@@ -94,6 +115,7 @@ describe("FxMacroDataClient", () => {
       path: "graphql",
       body: { query: "{ ping }" },
       params: {},
+      headers: {},
     });
   });
 });

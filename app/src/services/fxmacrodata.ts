@@ -50,16 +50,19 @@ export class FxMacroDataClient {
       });
   }
 
+  private authHeaders(): Record<string, string> {
+    return this.apiKey ? { "X-API-Key": this.apiKey } : {};
+  }
+
+  // History endpoints return 20 rows by default. Pass `limit` (max 100) and
+  // `offset` in `query` and follow `pagination.next_offset` for more rows.
   public async get<T = unknown>(
     path: string,
     query?: FxMacroDataQuery
   ): Promise<T> {
-    const params = normalizeParams(query);
-    if (this.apiKey && !params.api_key) {
-      params.api_key = this.apiKey;
-    }
     const response = await this.request.get(path.replace(/^\/+/, ""), {
-      params,
+      params: normalizeParams(query),
+      headers: this.authHeaders(),
     });
     return response.data;
   }
@@ -69,12 +72,9 @@ export class FxMacroDataClient {
     body?: unknown,
     query?: FxMacroDataQuery
   ): Promise<T> {
-    const params = normalizeParams(query);
-    if (this.apiKey && !params.api_key) {
-      params.api_key = this.apiKey;
-    }
     const response = await this.request.post(path.replace(/^\/+/, ""), body, {
-      params,
+      params: normalizeParams(query),
+      headers: this.authHeaders(),
     });
     return response.data;
   }
