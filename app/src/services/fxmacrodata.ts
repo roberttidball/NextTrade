@@ -36,6 +36,33 @@ function normalizeParams(query?: FxMacroDataQuery): Record<string, unknown> {
   return params;
 }
 
+export class FxMacroDataError extends Error {
+  public readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "FxMacroDataError";
+    this.status = status;
+  }
+}
+
+// Rethrow without the axios request config, which carries the API key header.
+function toFxMacroDataError(error: unknown): FxMacroDataError {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  if (status !== undefined && status >= 300 && status < 400) {
+    return new FxMacroDataError(
+      `FXMacroData returned an unexpected redirect (HTTP ${status})`,
+      status
+    );
+  }
+  return new FxMacroDataError(
+    status !== undefined
+      ? `FXMacroData request failed (HTTP ${status})`
+      : "FXMacroData request failed",
+    status
+  );
+}
+
 export class FxMacroDataClient {
   private readonly apiKey?: string;
   private readonly request: AxiosInstance;
@@ -60,11 +87,17 @@ export class FxMacroDataClient {
     path: string,
     query?: FxMacroDataQuery
   ): Promise<T> {
-    const response = await this.request.get(path.replace(/^\/+/, ""), {
-      params: normalizeParams(query),
-      headers: this.authHeaders(),
-    });
-    return response.data;
+    try {
+      const response = await this.request.get(path.replace(/^\/+/, ""), {
+        params: normalizeParams(query),
+        headers: this.authHeaders(),
+        // Never follow redirects, so the key header stays on this host.
+        maxRedirects: 0,
+      });
+      return response.data;
+    } catch (error) {
+      throw toFxMacroDataError(error);
+    }
   }
 
   public async post<T = unknown>(
@@ -72,11 +105,20 @@ export class FxMacroDataClient {
     body?: unknown,
     query?: FxMacroDataQuery
   ): Promise<T> {
-    const response = await this.request.post(path.replace(/^\/+/, ""), body, {
-      params: normalizeParams(query),
-      headers: this.authHeaders(),
-    });
-    return response.data;
+    try {
+      const response = await this.request.post(
+        path.replace(/^\/+/, ""),
+        body,
+        {
+          params: normalizeParams(query),
+          headers: this.authHeaders(),
+          maxRedirects: 0,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw toFxMacroDataError(error);
+    }
   }
 
   public dataCatalogue(currency: string): Promise<unknown> {

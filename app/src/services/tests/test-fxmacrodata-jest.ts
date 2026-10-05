@@ -1,4 +1,4 @@
-import { FxMacroDataClient } from "../fxmacrodata";
+import { FxMacroDataClient, FxMacroDataError } from "../fxmacrodata";
 
 function requestDouble() {
   const calls: {
@@ -117,5 +117,43 @@ describe("FxMacroDataClient", () => {
       params: {},
       headers: {},
     });
+  });
+
+  test("does not follow redirects", async () => {
+    const options: unknown[] = [];
+    const client = new FxMacroDataClient({
+      apiKey: "test-key",
+      request: {
+        get: async (_path: string, config?: unknown) => {
+          options.push(config);
+          return { data: { ok: true } };
+        },
+      } as any,
+    });
+
+    await client.forex("eur", "usd");
+
+    expect(options[0]).toMatchObject({ maxRedirects: 0 });
+  });
+
+  test("errors do not carry the API key", async () => {
+    const client = new FxMacroDataClient({
+      apiKey: "test-key",
+      request: {
+        get: async () => {
+          throw Object.assign(new Error("Request failed with status code 401"), {
+            config: { headers: { "X-API-Key": "test-key" } },
+            response: { status: 401 },
+          });
+        },
+      } as any,
+    });
+
+    const error = await client.forex("eur", "usd").catch((e) => e);
+
+    expect(error).toBeInstanceOf(FxMacroDataError);
+    expect(error.status).toBe(401);
+    expect(JSON.stringify(error)).not.toContain("test-key");
+    expect(String(error)).not.toContain("test-key");
   });
 });
